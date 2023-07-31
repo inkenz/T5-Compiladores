@@ -1,6 +1,6 @@
-# T4-Compiladores - Analisador Sintático da Linguagem LA
+# T5-Compiladores - Gerador de Código C da Linguagem LA
 
-Trabalho 4 da Disciplina de Construção de Compiladores 2023/01 UFSCar
+Trabalho 5 da Disciplina de Construção de Compiladores 2023/01 UFSCar
 
 ## Grupo:
 
