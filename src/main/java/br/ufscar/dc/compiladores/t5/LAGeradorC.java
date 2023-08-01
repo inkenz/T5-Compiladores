@@ -282,7 +282,11 @@ public class LAGeradorC extends LABaseVisitor<Void> {
             saida.append(ctx.NUM_REAL().getText());
         } else if (ctx.expressao() != null) {
             saida.append("(");
-            visitExpressao(ctx.expressao());
+            for(int i = 0; i<ctx.expressao().size(); i++){
+                if(i>0) saida.append(", ");
+                visitExpressao(ctx.expressao().get(i));
+            }
+              
             saida.append(")");
         }
         return null;
@@ -368,15 +372,15 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitVariavel(LAParser.VariavelContext ctx) {
-        for (VariavelContext var : ctx.variavel()) {
-            String tipo = TipoC(ctx.tipo());
-            for (TerminalNode ident : var.identificador()) {
-                saida.append(tipo + " " + ident.getText());
-                for (LAParser.DimensaoContext dimensao : var.dimensao()) {
-                    saida.append("[" + dimensao.exp_aritmetica().getText() + "]");
+        String tipo = TipoC(ctx.tipo());
+        for(LAParser.IdentificadorContext id: ctx.identificador()){
+            saida.append(tipo + " " + id.IDENT().get(0).getText());
+            if(id.dimensao() != null) {
+                for(LAParser.Exp_aritmeticaContext exp: id.dimensao().exp_aritmetica()){
+                 saida.append("[" + exp.getText() + "]");
                 }
-                saida.append(";\n");
             }
+            saida.append(";\n");
         }
         return null;
     }
