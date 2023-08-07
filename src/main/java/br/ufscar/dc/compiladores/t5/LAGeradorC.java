@@ -74,16 +74,15 @@ public class LAGeradorC extends LABaseVisitor<Void> {
     public Void visitDeclaracao_local(LAParser.Declaracao_localContext ctx) {
         if (ctx.DECLARE() != null) {
             String tipo = TipoC(ctx.tipo());
-            LAParser.VariavelContext variavelCtx = ctx.variavel();
-            for (LAParser.IdentificadorContext id : variavelCtx.identificador()) {
-                saida.append(tipo + " " + id.getText());
-                if (!variavelCtx.identificador(0).dimensao().isEmpty()) {
-                    for (LAParser.DimensaoContext dim : variavelCtx.identificador().dimensao()) {
-                        saida.append("[");
-                        visitExp_aritmetica(dim.exp_aritmetica());
-                        saida.append("]");
-                    }
+            for (LAParser.IdentificadorContext identificadorCtx : ctx.variavel().identificador()) {
+                saida.append(tipo + " " + identificadorCtx.getText());
+
+                if (!identificadorCtx.dimensao().isEmpty()) {
+                    saida.append("[");
+                    visitExp_aritmetica(identificadorCtx.dimensao().exp_aritmetica(0));
+                    saida.append("]");
                 }
+
                 saida.append(";\n");
             }
         } else if (ctx.CONSTANTE() != null) {
@@ -98,6 +97,8 @@ public class LAGeradorC extends LABaseVisitor<Void> {
         }
         return null;
     }
+
+
 
     @Override
     public Void visitCmd(LAParser.CmdContext ctx) {
@@ -294,31 +295,17 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitParcela_nao_unario(LAParser.Parcela_nao_unarioContext ctx) {
-        if (ctx.identificador() != null) {
-            String nomeIdentificador = ctx.identificador().getText();
-            List<ParametroContext> parametros = tabela.verificar(nomeIdentificador).parametros;
-            if (parametros != null) {
-                int qtdParametros = parametros.size();
-                if (qtdParametros > 0) {
-                    saida.append(nomeIdentificador + "(");
-                    for (int i = 0; i < qtdParametros; i++) {
-                        visitExpressao(ctx.expressao().get(i));
-                        if (i < qtdParametros - 1) {
-                            saida.append(", ");
-                        }
-                    }
-                    saida.append(")");
-                } else {
-                    saida.append(nomeIdentificador + "()");
-                }
-            } else {
-                saida.append(nomeIdentificador + "()");
+        if (ctx.ENDERECO() != null) {
+            saida.append("&");
+            if (ctx.identificador() != null) {
+                saida.append(ctx.identificador().getText());
             }
-        } else {
+        } else if (ctx.CADEIA() != null) {
             saida.append(ctx.CADEIA().getText());
         }
         return null;
     }
+
 
     @Override
     public Void visitParametros(LAParser.ParametrosContext ctx) {
@@ -336,13 +323,15 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     private String TipoC(LAParser.TipoContext ctx) {
         if (ctx.registro() != null) {
-            return "struct " + ctx.getParent().IDENT().getText();
+            return "struct " + ctx.registro().getParent().getChild(1).getText();
         } else if (ctx.tipo_estendido() != null) {
             return TipoC(ctx.tipo_estendido());
         } else {
             return "void";
         }
     }
+    
+    
 
     private String TipoC(LAParser.Tipo_estendidoContext ctx) {
         if (ctx.tipo_basico() != null) {
@@ -388,18 +377,72 @@ public class LAGeradorC extends LABaseVisitor<Void> {
     @Override
     public Void visitTipo_estendido(LAParser.Tipo_estendidoContext ctx) {
         if (ctx.IDENT() != null) {
-            String tipo = ctx.IDENT().getText();
-            if (tabela.existeSimbolo(ctx.tipo_basico().IDENT(0).getText())) {
-                tipo = tabela.verificar(ctx.tipo_basico().IDENT(1).getText()).tipo;
-            }
-            saida.append(tipo);
+            String tipo = ctx.IDENT().getSymbol().getText();
+            Tipo tipoSimbolo = tabela.verificar(tipo);
+            saida.append(tipoSimbolo);
         } else {
             saida.append("void");
         }
         return null;
     }
 
-    
+
+
+    @Override
+    public Void visitCmdChamada(LAParser.CmdChamadaContext ctx) {
+        saida.append(ctx.IDENT().getText() + "(");
+        if (ctx.expressao() != null && ctx.expressao().size() > 0) {
+            for (int i = 0; i < ctx.expressao().size(); i++) {
+                visitExpressao(ctx.expressao(i));
+                if (i < ctx.expressao().size() - 1) {
+                    saida.append(", ");
+                }
+            }
+        }
+        saida.append(");\n");
+        return null;
+    }
+
+    @Override
+    public Void visitCmdCaso(LAParser.CmdCasoContext ctx) {
+        String varSwitch = ctx.exp_aritmetica().getText();
+        saida.append("switch (" + varSwitch + ") {\n");
+        visitSelecao(ctx.selecao());
+        if (ctx.cmd() != null && ctx.cmd().size() > 0) {
+            for (int i = 0; i < ctx.cmd().size(); i++) {
+                visitCmd(ctx.cmd(i));
+            }
+        }
+        saida.append("}\n");
+        return null;
+    }
+
+    @Override
+    public Void visitSelecao(LAParser.SelecaoContext ctx) {
+        ctx.item_selecao().forEach(itemSelecao -> visitItem_selecao(itemSelecao));
+        return null;
+    }
+
+    @Override
+    public Void visitItem_selecao(LAParser.Item_selecaoContext ctx) {
+        String constantes = ctx.constantes().getText();
+        StringBuilder cmd = new StringBuilder("{\n");
+        for (LAParser.CmdContext cmdContext : ctx.cmd()) {
+            cmd.append(cmdContext.getText());
+        }
+        cmd.append("}\n");
+
+        if (ctx.constantes().numero_intervalo() != null) {
+            saida.append("default: ");
+            saida.append(cmd);
+        } else {
+            saida.append("case ").append(constantes).append(": ");
+            saida.append(cmd);
+        }
+        return null;
+    }
+
+
 
 }
 
