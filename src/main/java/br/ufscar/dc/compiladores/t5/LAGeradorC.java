@@ -79,7 +79,7 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
                 if (!identificadorCtx.dimensao().isEmpty()) {
                     saida.append("[");
-                    visitExp_aritmetica(identificadorCtx.dimensao().exp_aritmetica(0));
+                    saida.append(visitExp_aritmetica(identificadorCtx.dimensao().exp_aritmetica(0)));
                     saida.append("]");
                 }
 
@@ -207,19 +207,25 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitExpressao(LAParser.ExpressaoContext ctx) {
-        ctx.termo_logico().forEach(termo -> {
-            visitTermo_logico(termo);
-            saida.append(" || ");
-        });
+        int numTermosLogicos = ctx.termo_logico().size();
+        for (int i = 0; i < numTermosLogicos; i++) {
+            visitTermo_logico(ctx.termo_logico(i));
+            if (i < numTermosLogicos - 1) {
+                saida.append(" || ");
+            }
+        }
         return null;
     }
 
     @Override
     public Void visitTermo_logico(LAParser.Termo_logicoContext ctx) {
-        ctx.fator_logico().forEach(fator -> {
-            visitFator_logico(fator);
-            saida.append(" && ");
-        });
+        int numFatoresLogicos = ctx.fator_logico().size();
+        for (int i = 0; i < numFatoresLogicos; i++) {
+            visitFator_logico(ctx.fator_logico(i));
+            if (i < numFatoresLogicos - 1) {
+                saida.append(" && ");
+            }
+        }
         return null;
     }
 
@@ -232,17 +238,18 @@ public class LAGeradorC extends LABaseVisitor<Void> {
         return null;
     }
 
-    @Override
-    public Void visitParcela_logica(LAParser.Parcela_logicaContext ctx) {
-        if (ctx.VERDADEIRO() != null) {
-            saida.append("1");
-        } else if (ctx.FALSO() != null) {
-            saida.append("0");
-        } else {
-            visitExp_relacional(ctx.exp_relacional());
-        }
-        return null;
+@Override
+public Void visitParcela_logica(LAParser.Parcela_logicaContext ctx) {
+    if (ctx.VERDADEIRO() != null) {
+        saida.append("1");
+    } else if (ctx.FALSO() != null) {
+        saida.append("0");
+    } else {
+        visitExp_relacional(ctx.exp_relacional());
     }
+    return null;
+}
+
 
     @Override
     public Void visitTermo(LAParser.TermoContext ctx) {

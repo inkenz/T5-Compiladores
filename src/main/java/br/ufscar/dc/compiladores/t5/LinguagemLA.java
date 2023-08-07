@@ -81,7 +81,6 @@ public class LinguagemLA
                 pw.print(agc.saida.toString());
             }
 
-            pw.println("Fim da compilacao");
             pw.close();
 
         } catch (IOException e) {
