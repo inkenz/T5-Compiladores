@@ -1,7 +1,5 @@
 package br.ufscar.dc.compiladores.t5;
 
-import br.ufscar.dc.compiladores.t5.LABaseVisitor;
-import br.ufscar.dc.compiladores.t5.LAParser;
 import br.ufscar.dc.compiladores.t5.LAParser.ParametroContext;
 import br.ufscar.dc.compiladores.t5.TabelaDeSimbolos.Tipo;
 

@@ -5,7 +5,6 @@ import java.util.LinkedList;
 import java.util.List;
 import org.antlr.v4.runtime.Token;
 
-import br.ufscar.dc.compiladores.t5.LAParser;
 import br.ufscar.dc.compiladores.t5.LAParser.Exp_aritmeticaContext;
 import br.ufscar.dc.compiladores.t5.LAParser.Exp_relacionalContext;
 import br.ufscar.dc.compiladores.t5.LAParser.ExpressaoContext;

@@ -9,8 +9,6 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Token;
 
-import br.ufscar.dc.compiladores.t5.LALexer;
-import br.ufscar.dc.compiladores.t5.LAParser;
 import br.ufscar.dc.compiladores.t5.LAParser.ProgramaContext;
 
 public class LinguagemLA 

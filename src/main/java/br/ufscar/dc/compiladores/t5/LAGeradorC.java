@@ -2,21 +2,15 @@ package br.ufscar.dc.compiladores.t5;
 
 import static br.ufscar.dc.compiladores.t5.LinguagemLAUtils.verificarTipo;
 
-import br.ufscar.dc.compiladores.t5.LAParser.Decl_local_globalContext;
-import br.ufscar.dc.compiladores.t5.LAParser.Declaracao_globalContext;
-import br.ufscar.dc.compiladores.t5.LAParser.Declaracao_localContext;
 import br.ufscar.dc.compiladores.t5.LAParser.ParametroContext;
-import br.ufscar.dc.compiladores.t5.LAParser.VariavelContext;
 import br.ufscar.dc.compiladores.t5.TabelaDeSimbolos.Tipo;
-
-import java.util.List;
-
-import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class LAGeradorC extends LABaseVisitor<Void> {
     StringBuilder saida;
     TabelaDeSimbolos tabela;
     Escopo escopos = new Escopo();
+
+    //TODO: Consertar declaracoes, comandos duplicados, switch case. 
 
     public LAGeradorC() {
         saida = new StringBuilder();
@@ -34,6 +28,7 @@ public class LAGeradorC extends LABaseVisitor<Void> {
         saida.append("\n");
         saida.append("int main() {\n");
         ctx.corpo().cmd().forEach(cmd -> visitCmd(cmd));
+        saida.append("return 0;\n");
         saida.append("}\n");
         return null;
     }
@@ -50,8 +45,12 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitDeclaracao_global(LAParser.Declaracao_globalContext ctx) {
+        tabela = escopos.primeiroEscopo();
         if (ctx.PROCEDIMENTO() != null) {
             saida.append("void " + ctx.IDENT().getText() + "(");
+            tabela.inserir(ctx.IDENT().getText(), Tipo.PROCEDIMENTO);
+            escopos.criarNovoEscopo();
+            escopos.escopoAtual().inserir(ctx.IDENT().getText(), Tipo.PROCEDIMENTO);
             if (ctx.parametros() != null) {
                 visitParametros(ctx.parametros());
             }
@@ -60,6 +59,10 @@ public class LAGeradorC extends LABaseVisitor<Void> {
             saida.append("}\n");
         } else if (ctx.FUNCAO() != null) {
             saida.append(TipoC(ctx.tipo_estendido()) + " " + ctx.IDENT().getText() + "(");
+            tabela.inserir(ctx.IDENT().getText(), Tipo.FUNCAO);
+            escopos.criarNovoEscopo();
+            escopos.escopoAtual().inserir(ctx.IDENT().getText(), Tipo.FUNCAO);
+            escopos.escopoAtual().inserir(ctx.IDENT().getText()+".return", verificarTipo(ctx.tipo_estendido()));
             if (ctx.parametros() != null) {
                 visitParametros(ctx.parametros());
             }
@@ -72,14 +75,16 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitDeclaracao_local(LAParser.Declaracao_localContext ctx) {
+        tabela = escopos.escopoAtual();
         if (ctx.DECLARE() != null) {
             String tipo = TipoC(ctx.tipo());
+            Tipo tipo2 = verificarTipo(escopos, ctx.tipo());
             for (LAParser.IdentificadorContext identificadorCtx : ctx.variavel().identificador()) {
                 saida.append(tipo + " " + identificadorCtx.getText());
-
+                tabela.inserir(identificadorCtx.getText(), tipo2);
                 if (!identificadorCtx.dimensao().isEmpty()) {
                     saida.append("[");
-                    saida.append(visitExp_aritmetica(identificadorCtx.dimensao().exp_aritmetica(0)));
+                    visitExp_aritmetica(identificadorCtx.dimensao().exp_aritmetica(0));
                     saida.append("]");
                 }
 
@@ -88,13 +93,17 @@ public class LAGeradorC extends LABaseVisitor<Void> {
         } else if (ctx.CONSTANTE() != null) {
             String ident = ctx.IDENT().getText();
             String tipoBasico = TipoC(ctx.tipo_basico());
+            Tipo tipoBasico2 = verificarTipo(tabela, ctx.tipo_basico());
             String valorConstante = ctx.valor_constante().getText();
             saida.append("const " + tipoBasico + " " + ident + " = " + valorConstante + ";\n");
+            tabela.inserir(ident, tipoBasico2);
         } else if (ctx.TIPO() != null) {
             String tipo = TipoC(ctx.tipo());
+            Tipo tipo2 = verificarTipo(escopos, ctx.tipo()); 
             String ident = ctx.IDENT().getText();
             saida.append("typedef " + tipo + " " + ident + ";\n");
-        }
+            tabela.inserir(ident, tipo2);
+    }
         return null;
     }
 
