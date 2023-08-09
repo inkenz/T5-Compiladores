@@ -10,18 +10,19 @@ import br.ufscar.dc.compiladores.t5.TabelaDeSimbolos.Tipo;
 
 public class LAGeradorC extends LABaseVisitor<Void> {
     StringBuilder saida;
-    TabelaDeSimbolos tabela;
-    Escopo escopos = new Escopo();
+    Escopo escopos;
 
     //TODO: Consertar declaracoes, comandos duplicados, switch case. 
 
     public LAGeradorC() {
         saida = new StringBuilder();
-        this.tabela = new TabelaDeSimbolos();
+        this.escopos = new Escopo();
     }
 
     @Override
     public Void visitPrograma(LAParser.ProgramaContext ctx) {
+        escopos.criarNovoEscopo();
+
         saida.append("#include <stdio.h>\n");
         saida.append("#include <stdlib.h>\n");
         saida.append("\n");
@@ -44,7 +45,7 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitDeclaracao_global(LAParser.Declaracao_globalContext ctx) {
-        tabela = escopos.primeiroEscopo();
+        TabelaDeSimbolos tabela = escopos.primeiroEscopo();
         if (ctx.PROCEDIMENTO() != null) {
             saida.append("void " + ctx.IDENT().getText() + "(");
             tabela.inserir(ctx.IDENT().getText(), Tipo.PROCEDIMENTO);
@@ -74,7 +75,7 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitDeclaracao_local(LAParser.Declaracao_localContext ctx) {
-        tabela = escopos.escopoAtual();
+        TabelaDeSimbolos tabela = escopos.escopoAtual();
         if (ctx.DECLARE() != null) {
             String tipo = TipoC(ctx.tipo());
             Tipo tipo2 = verificarTipo(escopos, ctx.tipo());
@@ -134,6 +135,10 @@ public class LAGeradorC extends LABaseVisitor<Void> {
             visitCmdFaca(ctx.cmdFaca());
         } else if (ctx.cmdPara() != null) {
             visitCmdPara(ctx.cmdPara());
+        }else if (ctx.cmdChamada() != null) {
+            visitCmdChamada(ctx.cmdChamada());
+        }else if (ctx.cmdCaso() != null) {
+            visitCmdCaso(ctx.cmdCaso());
         }
         return null;
     }
@@ -256,6 +261,35 @@ public class LAGeradorC extends LABaseVisitor<Void> {
         saida.append("\t} while (");
         visitExpressao(ctx.expressao());
         saida.append(");\n");
+        return null;
+    }
+
+    @Override
+    public Void visitCmdChamada(LAParser.CmdChamadaContext ctx) {
+        saida.append(ctx.IDENT().getText() + "(");
+        if (ctx.expressao() != null && ctx.expressao().size() > 0) {
+            for (int i = 0; i < ctx.expressao().size(); i++) {
+                visitExpressao(ctx.expressao(i));
+                if (i < ctx.expressao().size() - 1) {
+                    saida.append(", ");
+                }
+            }
+        }
+        saida.append(");\n");
+        return null;
+    }
+
+    @Override
+    public Void visitCmdCaso(LAParser.CmdCasoContext ctx) {
+        String varSwitch = ctx.exp_aritmetica().getText();
+        saida.append("switch (" + varSwitch + ") {\n");
+        visitSelecao(ctx.selecao());
+        if (ctx.cmd() != null && ctx.cmd().size() > 0) {
+            for (int i = 0; i < ctx.cmd().size(); i++) {
+                visitCmd(ctx.cmd(i));
+            }
+        }
+        saida.append("}\n");
         return null;
     }
 
@@ -437,6 +471,7 @@ public Void visitParcela_logica(LAParser.Parcela_logicaContext ctx) {
 
     @Override
     public Void visitTipo_estendido(LAParser.Tipo_estendidoContext ctx) {
+        TabelaDeSimbolos tabela = escopos.escopoAtual();
         if (ctx.IDENT() != null) {
             String tipo = ctx.IDENT().getSymbol().getText();
             Tipo tipoSimbolo = tabela.verificar(tipo);
@@ -444,37 +479,6 @@ public Void visitParcela_logica(LAParser.Parcela_logicaContext ctx) {
         } else {
             saida.append("void");
         }
-        return null;
-    }
-
-
-
-    @Override
-    public Void visitCmdChamada(LAParser.CmdChamadaContext ctx) {
-        saida.append(ctx.IDENT().getText() + "(");
-        if (ctx.expressao() != null && ctx.expressao().size() > 0) {
-            for (int i = 0; i < ctx.expressao().size(); i++) {
-                visitExpressao(ctx.expressao(i));
-                if (i < ctx.expressao().size() - 1) {
-                    saida.append(", ");
-                }
-            }
-        }
-        saida.append(");\n");
-        return null;
-    }
-
-    @Override
-    public Void visitCmdCaso(LAParser.CmdCasoContext ctx) {
-        String varSwitch = ctx.exp_aritmetica().getText();
-        saida.append("switch (" + varSwitch + ") {\n");
-        visitSelecao(ctx.selecao());
-        if (ctx.cmd() != null && ctx.cmd().size() > 0) {
-            for (int i = 0; i < ctx.cmd().size(); i++) {
-                visitCmd(ctx.cmd(i));
-            }
-        }
-        saida.append("}\n");
         return null;
     }
 
@@ -511,17 +515,17 @@ public Void visitParcela_logica(LAParser.Parcela_logicaContext ctx) {
         else if (ctx.DIFERENTE() != null) {
             saida.append(" != ");
         }
-        else if (ctx.MAIORIGUAL() != null) {
-            saida.append(" >= ");
-        }
-        else if (ctx.MENORIGUAL() != null) {
-            saida.append(" <= ");
-        }
         else if (ctx.MAIOR() != null) {
             saida.append(" > ");
         }
         else if (ctx.MENOR() != null) {
             saida.append(" < ");
+        }
+        else if (ctx.MAIORIGUAL() != null) {
+            saida.append(" >= ");
+        }
+        else if (ctx.MENORIGUAL() != null) {
+            saida.append(" <= ");
         }
         return null;
     }
