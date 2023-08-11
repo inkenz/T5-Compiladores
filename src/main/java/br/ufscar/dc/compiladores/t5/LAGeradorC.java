@@ -10,9 +10,7 @@ import br.ufscar.dc.compiladores.t5.TabelaDeSimbolos.Tipo;
 
 public class LAGeradorC extends LABaseVisitor<Void> {
     StringBuilder saida;
-    Escopo escopos;
-
-    //TODO: Consertar declaracoes, comandos duplicados, switch case. 
+    Escopo escopos; 
 
     public LAGeradorC() {
         saida = new StringBuilder();
@@ -26,18 +24,22 @@ public class LAGeradorC extends LABaseVisitor<Void> {
         saida.append("#include <stdio.h>\n");
         saida.append("#include <stdlib.h>\n");
         saida.append("\n");
-
-        ctx.declaracoes().decl_local_global().forEach(dec -> {
-            if (dec.declaracao_global() != null) {
-                visitDeclaracao_global(dec.declaracao_global());
-            } else if (dec.declaracao_local() != null) {
-                visitDeclaracao_local(dec.declaracao_local());
+        
+        for(var ctxDec : ctx.declaracoes().decl_local_global()){
+            if(ctxDec.declaracao_global() != null){
+                visitDeclaracao_global(ctxDec.declaracao_global());
+            } else {
+                visitDeclaracao_local(ctxDec.declaracao_local());
             }
-        });
+        }
 
         saida.append("\n");
         saida.append("int main() {\n");
+
+        ctx.corpo().declaracao_local().forEach(dec -> visitDeclaracao_local(dec));
+
         ctx.corpo().cmd().forEach(cmd -> visitCmd(cmd));
+
         saida.append("return 0;\n");
         saida.append("}\n");
         return null;
@@ -75,35 +77,22 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitDeclaracao_local(LAParser.Declaracao_localContext ctx) {
-        TabelaDeSimbolos tabela = escopos.escopoAtual();
         if (ctx.DECLARE() != null) {
-            String tipo = TipoC(ctx.tipo());
-            Tipo tipo2 = verificarTipo(escopos, ctx.tipo());
-            for (LAParser.IdentificadorContext identificadorCtx : ctx.variavel().identificador()) {
-                saida.append(tipo + " " + identificadorCtx.getText());
-                tabela.inserir(identificadorCtx.getText(), tipo2);
-                if (!identificadorCtx.dimensao().isEmpty()) {
-                    saida.append("[");
-                    visitExp_aritmetica(identificadorCtx.dimensao().exp_aritmetica(0));
-                    saida.append("]");
-                }
-
-                saida.append(";\n");
-            }
+            visitVariavel(ctx.variavel());
         } else if (ctx.CONSTANTE() != null) {
             String ident = ctx.IDENT().getText();
-            String tipoBasico = TipoC(ctx.tipo_basico());
-            Tipo tipoBasico2 = verificarTipo(tabela, ctx.tipo_basico());
             String valorConstante = ctx.valor_constante().getText();
-            saida.append("const " + tipoBasico + " " + ident + " = " + valorConstante + ";\n");
-            tabela.inserir(ident, tipoBasico2);
+            saida.append("#define " + " " + ident + " " + valorConstante + ";\n");
+
         } else if (ctx.TIPO() != null) {
-            String tipo = TipoC(ctx.tipo());
             Tipo tipo2 = verificarTipo(escopos, ctx.tipo()); 
             String ident = ctx.IDENT().getText();
-            saida.append("typedef " + tipo + " " + ident + ";\n");
-            tabela.inserir(ident, tipo2);
-    }
+            saida.append("typedef struct{\n");
+            visitRegistro(ctx.tipo().registro());
+            saida.append("}" + ctx.IDENT().getText() + ";\n");
+            
+            escopos.escopoAtual().inserir(ident, tipo2);
+        }
         return null;
     }
 
@@ -118,7 +107,6 @@ public class LAGeradorC extends LABaseVisitor<Void> {
 
     @Override
     public Void visitCmd(LAParser.CmdContext ctx) {
-        super.visitCmd(ctx);
         if (ctx.cmdEnquanto() != null) {
             visitCmdEnquanto(ctx.cmdEnquanto());
         } else if (ctx.cmdAtribuicao() != null) {
@@ -433,7 +421,7 @@ public Void visitParcela_logica(LAParser.Parcela_logicaContext ctx) {
             if (ctx.IDENT() != null) {
                 return ctx.IDENT().getText();
             } else {
-                return ctx.tipo_basico().getText();
+                return TipoC(ctx.tipo_basico());
             }
         } else {
             return "void";
@@ -456,16 +444,55 @@ public Void visitParcela_logica(LAParser.Parcela_logicaContext ctx) {
 
     @Override
     public Void visitVariavel(LAParser.VariavelContext ctx) {
-        String tipo = TipoC(ctx.tipo());
-        for(LAParser.IdentificadorContext id: ctx.identificador()){
-            saida.append(tipo + " " + id.IDENT().get(0).getText());
-            if(id.dimensao() != null) {
-                for(LAParser.Exp_aritmeticaContext exp: id.dimensao().exp_aritmetica()){
-                 saida.append("[" + exp.getText() + "]");
+        Tipo tipo = verificarTipo(escopos, ctx.tipo());
+
+        if (tipo != Tipo.REGISTRO && ctx.tipo() == null ){
+            String strCtipo = TipoC(ctx.tipo());
+
+            saida.append("\t" + strCtipo);
+
+            if (tipo == Tipo.PONTEIRO){
+                saida.append("*");
+            }
+
+            saida.append(" " + ctx.identificador(0).getText());
+
+            escopos.escopoAtual().inserir(ctx.identificador(0).IDENT(0).getText(), tipo);
+
+            if (tipo == Tipo.LITERAL){
+                saida.append("[50]");
+            }
+            
+            for (int i = 0; i < ctx.VIRGULA().size(); i++){
+                saida.append(", " + ctx.identificador(i + 1).getText());
+                escopos.escopoAtual().inserir(ctx.identificador(i + 1).IDENT(0).getText(), tipo);
+                if (tipo == Tipo.LITERAL){
+                    saida.append("[50]");
                 }
             }
-            saida.append(";\n");
         }
+        else if (tipo == Tipo.REGISTRO){
+            escopos.criarNovoEscopo();
+            saida.append("\tstruct {\n");
+            visitRegistro(ctx.tipo().registro());
+            saida.append("\t} " + ctx.identificador(0).getText());
+            
+            escopos.escopoAtual().inserir(ctx.identificador(0).getText(), tipo);
+        }
+        else {
+            String tipoC = TipoC(ctx.tipo());
+
+            saida.append(tipoC);
+            saida.append(" " + ctx.identificador(0).getText());
+            escopos.escopoAtual().inserir(ctx.identificador(0).getText(), tipo);
+            
+            for (int i = 0; i < ctx.VIRGULA().size(); i++){
+                saida.append(", " + ctx.identificador(i + 1).getText());
+                escopos.escopoAtual().inserir(ctx.identificador(i + 1).getText(), tipo);
+            }
+        }
+        saida.append(";\n");
+
         return null;
     }
 

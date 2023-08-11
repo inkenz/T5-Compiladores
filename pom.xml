@@ -60,6 +60,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
-        <exec.mainClass>br.ufscar.dc.compiladores.t4.LinguagemLA</exec.mainClass>
+        <exec.mainClass>br.ufscar.dc.compiladores.t5.LinguagemLA</exec.mainClass>
     </properties>
 </project>

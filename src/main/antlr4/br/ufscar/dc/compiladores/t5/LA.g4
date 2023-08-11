@@ -105,7 +105,7 @@ declaracoes:
     (decl_local_global)*
 ;
 decl_local_global:
-    declaracao_local| declaracao_global
+    declaracao_local | declaracao_global
 ;
 declaracao_local:
     DECLARE variavel
